@@ -166,11 +166,12 @@ def home():
         add_item('', '[B][COLOR blue]Wyloguj[/COLOR][/B]', ikona, "logout", folder=False,fanart=FANART)
         
 def HBOsubmenu():
-    add_item('reco_list|25|Polecane', 'Polecane', ikona, "packcontent", folder=True,fanart=FANART)
-    add_item('media_type|movie|Filmy', 'Filmy', ikona, "packcontent", folder=True,fanart=FANART)
-    add_item('key_categories|1754|Seriale', 'Seriale', ikona, "packcontent", folder=True,fanart=FANART)
-    add_item('genres|Dla Dzieci|Kids filmy', 'KIDS filmy', ikona, "packcontent", folder=True,fanart=FANART)
-    add_item('key_categories|5001096|Kids seriale', 'KIDS seriale', ikona, "packcontent", folder=True,fanart=FANART)
+    #add_item('reco_list|25|Polecane', 'Polecane', ikona, "packcontent", folder=True,fanart=FANART)
+    add_item('main_category|5024059|Film', 'Filmy', ikona, "packcontent", folder=True,fanart=FANART)
+    add_item('key_categories|5024044|Seriale', 'Seriale', ikona, "packcontent", folder=True,fanart=FANART)
+    add_item('key_categories|5024076|Programy', 'Programy', ikona, "packcontent", folder=True,fanart=FANART)
+    add_item('key_categories|5024078|Dzieci', 'Dzieci', ikona, "packcontent", folder=True,fanart=FANART)
+    #add_item('key_categories|5001096|Kids seriale', 'KIDS seriale', ikona, "packcontent", folder=True,fanart=FANART)
     add_item('media_type|tv|Kanały TV', 'Kanały TV', ikona, "packcontent", folder=True,fanart=FANART)
 
     xbmcplugin.endOfDirectory(addon_handle) 
@@ -308,7 +309,7 @@ def ListTVS():
                     opis=''
         
        # for item in items:
-            add_item(item['url'], item['title'], item['img'], 'playtvs', folder=False, IsPlayable=True, infoLabels={'plot':opis},fanart=FANART)
+            add_item(item['url']+'|tv', item['title'], item['img'], 'playtvs', folder=False, IsPlayable=True, infoLabels={'plot':opis},fanart=FANART)
 
         if addon.getSetting('sort') == 'true':
             xbmcplugin.addSortMethod(addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
@@ -323,7 +324,10 @@ def ListLives():
     if IPLA().LOGGED == 'true':
         items = IPLA().getLives()
         for item in items:
-            add_item(item['url'], item['title'], item['img'], 'playtvs', folder=False, IsPlayable=True, infoLabels={'plot':item['plot']},fanart=FANART)
+            if 'brak w twoim pakiecie' in item['title']:
+                add_item(item['url'], item['title'], item['img'], 'playtvs', folder=False, IsPlayable=False, infoLabels={'plot':item['plot']},fanart=FANART)
+            else:
+                add_item(item['url'], item['title'], item['img'], 'playtvs', folder=False, IsPlayable=True, infoLabels={'plot':item['plot']},fanart=FANART)
         xbmcplugin.addSortMethod(addon_handle, sortMethod=xbmcplugin.SORT_METHOD_TITLE, label2Mask = "%R, %Y, %P")
         setView('tvshows')
         #xbmcplugin.setContent(addon_handle, 'videos')
@@ -652,6 +656,8 @@ class IPLA(object):
         
         
     def newtime(self,ff):
+        #2022-11-15T16:00:00Z
+        '''
         from datetime import datetime
         ff=re.sub(':\d+Z','',ff)
         dd=re.findall('T(\d+)',ff)[0]
@@ -671,7 +677,20 @@ class IPLA(object):
         except TypeError:
             format_date=datetime(*(time.strptime(ff, '%Y-%m-%dT%H:%M')[0:6]))
         dd= int('{:0}'.format(int(time.mktime(format_date.timetuple()))))
-
+        '''
+        from datetime import datetime
+        from datetime import timedelta
+        import time
+        try:
+            format_date_utc=datetime.strptime(ff, '%Y-%m-%dT%H:%M:%SZ')
+        except TypeError:
+            format_date_utc=datetime(*(time.strptime(ff, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
+        now_loc=datetime.now().replace(microsecond=0) 
+        now_UTC=datetime.utcnow().replace(microsecond=0) 
+        dif=now_loc-now_UTC
+        format_date=format_date_utc+dif
+        dd= int('{:0}'.format(int(time.mktime(format_date.timetuple()))))
+        
         return dd,format_date   
     
     def getSzukaj(self,query):
@@ -786,7 +805,7 @@ class IPLA(object):
 
         authdata=self.getHmac(dane)
 
-        POST_DATA = {"id":1,"jsonrpc":"2.0","method":"getPacketContent","params":{"userAgentData":{"portal":"pbg","deviceType":"pc","application":"firefox","os":"windows","build":1,"osInfo":OSINFO},"ua":UAIPLA,"packetCode":"hbo","limit":self.ILOSC,"offset":page,"filters":[{"name":nm,"type":tp,"value":vl}],"authData":{"sessionToken":authdata},"clientId":self.CLIENT_ID}}
+        POST_DATA = {"id":1,"jsonrpc":"2.0","method":"getPacketContent","params":{"userAgentData":{"portal":"pbg","deviceType":"pc","application":"firefox","os":"windows","build":1,"osInfo":OSINFO},"ua":UAIPLA,"packetCode":"kat_hbohd","limit":self.ILOSC,"offset":page,"filters":[{"name":nm,"type":tp,"value":vl}],"authData":{"sessionToken":authdata},"clientId":self.CLIENT_ID}}
 
         data = getRequests(self.NAVIGATE, data = POST_DATA, headers=self.HEADERS)
         dane = data['result']['results']
@@ -796,7 +815,10 @@ class IPLA(object):
         
         for f in dane:
             imag = f.get('posters','')
-            imag = imag [-1]['src'].encode('utf-8') if imag else f['thumbnails'][-1]['src'].encode('utf-8')
+            try:
+                imag = imag [-1]['src'].encode('utf-8') if imag else f['thumbnails'][-1]['src'].encode('utf-8')
+            except:
+                pass
             mid = f['id']
             if f.get('title',None):
                 tytul = f['title'].encode('utf-8')
@@ -933,39 +955,80 @@ class IPLA(object):
 
     def getChannels(self):
         self.getSesja()
+	
+        items = []
+
         dane = (self.DANE).format('navigation','getTvChannels')
+        
         authdata=self.getHmac(dane)
+        
         POST_DATA = {"id":1,"jsonrpc":"2.0","method":"getTvChannels","params":{"filters":[],"ua":UAIPLA,"deviceId":{"type":"other","value":self.DEVICE_ID},"userAgentData":{"portal":"pbg","deviceType":"pc","application":"firefox","player":"html","build":1,"os":"windows","osInfo":OSINFO},"authData":{"sessionToken":authdata},"clientId":self.CLIENT_ID}}
-        data = getRequests(self.NAVIGATE, data = POST_DATA, headers=self.HEADERS)
-        items=[]
-        items1=[]
-        zz=data['result']['results']
-        for i in zz:
-            item={}
-            item1={}
-            item['img'] = i['thumbnails'][-1]['src'].encode('utf-8').decode('utf-8')
-            item['id'] = i['id']
-            item['url'] = i['id']
-            item['title'] = i['title'].upper().encode('utf-8').decode('utf-8')
-            item['plot'] = i['description'].encode('utf-8').decode('utf-8')
-            item['plot'] = item['plot'] if item['plot']  else item['title']
-            items.append(item)
-            item1 = {'id': i['product']['id'],"type":i['product']['type'],"subType":i['product']['subType']}
-            items1.append(item1)
+        
+        data = getRequests(self.NAVIGATE, data = POST_DATA, headers=self.HEADERS)   
 
-        data = self.checkAccessList(items1)
-        items3=[]
-        for d in data['result']:
-                for i in items:
+        myper=[]
+        for i in eval(self.MYPERMS):
+            if 'sc:' in i:
+                myper.append(str(i))
+            if 'oth:' in i:
+                myper.append(str(i))
+            if 'cpuser:true' in i:
+                myper.append(str(i))
+            if 'vip:true' in i:
+                myper.append(str(i))
+            if 'rodo:true' in i:
+                myper.append(str(i))
+            if 'plususer:true' in i:
+                myper.append(str(i))
+            if 'cp_:' in i:
+                myper.append(str(i))
+              
+		
+        dane = (self.DANE).format('navigation','getCommonlyAccessiblePackets')
+        authdata=self.getHmac(dane)
+        POST_DATAx= {"id":1,"jsonrpc":"2.0","method":"getCommonlyAccessiblePackets","params":{"ua":UAIPLA,"deviceId":{"type":"other","value":self.DEVICE_ID},"userAgentData":{"portal":"pbg","deviceType":"pc","application":"firefox","player":"html","build":1,"os":"windows","osInfo":OSINFO},"authData":{"sessionToken":authdata},"clientId":self.CLIENT_ID}}
 
-                    try:
-                        if d["product"]["id"]==i['id']:
-                            if d['access']["statusDescription"]=='has access':
-                                items3.append(i)
-                    except:
-                        pass
+        datax = getRequests(self.NAVIGATE, data = POST_DATAx, headers=self.HEADERS)
 
-        return items3
+        results = datax.get("result", None)
+        for rr in results:
+            abcd = rr.get("id", None)
+            if abcd:
+                myper.append('sc:'+	str(abcd))
+
+        addon.setSetting('myperm', str(myper))
+
+        for i in data['result']['results']:
+            item = {}
+            channelperms = i['grantExpression'].split('*')
+            if len(channelperms)==1 and channelperms[0]=='':
+                channelperms = []
+            else:
+                channelperms = [w.replace('+plat:all', '') for w in channelperms]
+                channelperms = [w.replace('+dev:pc', '') for w in channelperms]
+                channelperms = [w.replace('+dev:mobile', '') for w in channelperms]
+                channelperms = [w.replace('+dev:pc', '') for w in channelperms]
+            for j in myper:
+				
+                if j in channelperms or i['title']=='Polsat' or i['title']=='TV4' or i['title']=='Ukraina 24 HD' or not channelperms:
+                    item['img'] = i['thumbnails'][-1]['src'].encode('utf-8').decode('utf-8')
+                    item['id'] = i['id']
+                    item['title'] = i['title'].upper().encode('utf-8').decode('utf-8')
+                    item['plot'] = i['description'].encode('utf-8').decode('utf-8')
+                    item['plot'] = item['plot'] if item['plot']  else item['title']
+                    item = {'title':item['title'],'url':item['id'],'img':item['img'],'plot':item['plot']}
+                    items.append(item)
+
+        dupes = []
+        filter = []
+        for entry in items:
+            if not entry['url'] in dupes:
+                filter.append(entry)
+                dupes.append(entry['url'])
+        addon.setSetting('kanaly', str(dupes))
+        
+        items = filter
+        return items
 
     def getSesja(self, retry=False):
 
@@ -1009,14 +1072,13 @@ class IPLA(object):
             else:
                 acc = False
 
-        elif 'HBOtv' in id_:
+        elif 'HBOtv' in id_ or '|tv' in id_:#
             id_=id_.split('|')[0]
             POST_DATA = {"id":1,"jsonrpc":"2.0","method":"checkProductAccess","params":{"userAgentData":{"portal":"pbg","deviceType":"pc","application":"firefox","os":"windows","build":1,"osInfo":OSINFO},"ua":UAIPLA,"product":{"id":id_,"type":"media","subType":"tv"},"authData":{"sessionToken":authdata},"clientId":self.CLIENT_ID}}    
             data = getRequests('https://b2c-www.redefine.pl/rpc/drm/', data = POST_DATA, headers=self.HEADERS)
             acc = True if data['result']["statusDescription"] =="has access" else False
         else:
             data = getRequests('https://b2c-www.redefine.pl/rpc/drm/', data = POST_DATA, headers=self.HEADERS)
-
             acc = True if data['result']["statusDescription"] =="has access" else False
         
         return acc
@@ -1024,20 +1086,22 @@ class IPLA(object):
     def getEpgs(self):
         kanaly = addon.getSetting('kanaly')
         kanaly=eval(kanaly)
-        
+        '''
         import datetime 
         now = datetime.datetime.now()
         now2 = datetime.datetime.now()+ datetime.timedelta(days=1)
         aa1=now.strftime('%Y-%m-%dT%H:%M:%S') + ('.%03dZ' % (now.microsecond / 10000))
         aa=now2.strftime('%Y-%m-%dT%H:%M:%S') + ('.%03dZ' % (now.microsecond / 10000))
-
         dane =self.SESSTOKEN+'|'+self.SESSEXPIR+'|navigation|getChannelsProgram'
         authdata=self.getHmac(dane)
-
-        POST_DATA={"jsonrpc":"2.0","method":"getChannelsProgram","id":1,"params":{"channelIds":kanaly,"fromDate":aa1,"toDate":aa,"ua":UAIPLA,"authData":{"sessionToken":authdata}}}
+        POST_DATA={"jsonrpc":"2.0","method":"getChannelsProgram","id":1,"params":{"channelIds":kanaly,"fromDate":aa1,"toDate":aa,"ua":UAIPLA,"authData":{"sessionToken":authdata},"userAgentData":{"deviceType":"pc","application":"firefox","os":"windows","osInfo":OSINFO,"build":1,"portal":"pbg","player":"html"},"clientId":self.CLIENT_ID,"deviceId":{"type":"other","value":self.DEVICE_ID}}}
+        '''
+        dane =self.SESSTOKEN+'|'+self.SESSEXPIR+'|navigation|getChannelsCurrentProgram'
+        authdata=self.getHmac(dane)
+        POST_DATA={"jsonrpc":"2.0","method":"getChannelsCurrentProgram","id":1,"params":{"channelIds":kanaly,"limit":2,"offset":0,"ua":UAIPLA,"authData":{"sessionToken":authdata},"userAgentData":{"deviceType":"pc","application":"firefox","os":"windows","osInfo":OSINFO,"build":1,"portal":"pbg","player":"html"},"clientId":self.CLIENT_ID,"deviceId":{"type":"other","value":self.DEVICE_ID}}}
         response = getRequests(self.NAVIGATE, data = POST_DATA, headers=self.HEADERS)
-
         dupek=[]
+
         import datetime 
         now = datetime.datetime.now()
         ab=now.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -1048,6 +1112,7 @@ class IPLA(object):
             format_date=datetime.strptime(ab, '%Y-%m-%dT%H:%M:%SZ')
         except TypeError:
             format_date=datetime(*(time.strptime(ab, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
+        '''
         zz= int('{:0}'.format(int(time.mktime(format_date.timetuple()))))
         
         items={}
@@ -1084,6 +1149,25 @@ class IPLA(object):
             else:
                 continue
             items[kanal]=el1
+        '''
+        items={}
+        for kanal in kanaly:
+            el1=''
+            if kanal in response['result']:
+                dane=response['result'][kanal]
+                for i in range(len(dane)):
+                    try:
+                        tyt=dane[i]["title"]
+                        tyt2=dane[i]["genre"]
+                        format_date=self.newtime(dane[i]["startTime"])[1]
+                        cc=re.sub(':\d+$','',str(format_date))
+                        desc=dane[i]["description"]
+                        el1+='[COLOR khaki]'+cc+'[/COLOR] - '+tyt+' [COLOR violet]('+tyt2+')[/COLOR]\n[B]OPIS: [/B][I]'+desc+'[/I]\n[CR]'
+                    except Exception as e:
+                        pass
+            else:
+                continue
+            items[kanal]=el1
         dupek.append(items)
         
         return dupek
@@ -1110,6 +1194,8 @@ class IPLA(object):
         for item in IPLA().getChannels():
             
             channelid = item.get('url', None)
+            if 'tv' not in channelid:
+                channelid+='%7Ctv'
             list_title = self.decode_byte(item.get('title', '')) + ' PL'
             title = self.decode_byte(item.get('title', ''))
             img = self.decode_byte(item.get('img', ''))
@@ -1122,19 +1208,18 @@ class IPLA(object):
         xbmcgui.Dialog().notification('Polsat GO BOX', 'Wygenerowano liste M3U', xbmcgui.NOTIFICATION_INFO)      
         
     def PlayIpla(self,id_,cpid=0):
-
         self.getSesja()
         acc=True
         if '|' in id_ :
             cpid= 1
-            if not 'HBOtv' in id_:
+            if not ('HBOtv' in id_ or '|tv' in id_):
                 id_ = id_.split('|')[0]
                 #cpid= 0
             else:   
                 id_ = id_#.split('|')[0]
             acc=self.checkAccess(id_)
         if acc:
-            if 'HBOtv' in id_:
+            if 'HBOtv' in id_ or '|tv' in id_:
                 id_ = id_.split('|')[0]
                 cpid= 0
             dane = self.DANE.format('navigation','prePlayData')
@@ -1168,7 +1253,6 @@ class IPLA(object):
                 devcid=(self.DEVICE_ID).replace('-','')
 
                 data=quote('{"jsonrpc":"2.0","id":1,"method":"getWidevineLicense","params":{"userAgentData":{"deviceType":"pc","application":"firefox","os":"windows","build":2160500,"portal":"pbg","player":"html","widevine":true},"cpid":%s'%cpid+',"mediaId":"'+mediaid+'","sourceId":"'+sourceid+'","keyId":"'+keyid+'","object":"b{SSM}","deviceId":{"type":"other","value":"'+devcid+'"},"ua":"pbg_pc_windows_firefox_html/2160500","authData":{"sessionToken":"'+authdata+'"},"clientId":"'+self.CLIENT_ID+'"}}')
-                
                 import inputstreamhelper
                 import ssl
                 try:
@@ -1298,6 +1382,8 @@ if __name__ == '__main__':
     elif mode == "ListVODsubcateg":
         ListVODsubCateg (exlink)    
     elif mode == 'playtvs':
+        if '_tv' in exlink:
+            exlink=exlink.replace('_','|')
         IPLA().PlayIpla(exlink)
     elif mode == 'listContent':
         ListContent(exlink,page)
